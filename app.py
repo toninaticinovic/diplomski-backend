@@ -74,7 +74,7 @@ class SeparableDataClassification(MethodView):
                  'color': int(c)} for x, c in zip(X, y)]
 
         x_train, x_test, y_train, y_test = train_test_split(
-            X, y, train_size=train_size, random_state=100)
+            X, y, train_size=train_size, random_state=1)
 
         train_data = [{'x1': x[0], 'x2': x[1],
                        'color': int(c)} for x, c in zip(x_train, y_train)]
@@ -122,9 +122,9 @@ class SeparableDataClassificationTrain(MethodView):
             loss = train_model(i, model, torch.Tensor(
                 x), torch.Tensor(y), optimizer, criterion)
             w, b = model.parameters()
-            w1, w2 = w.data[0][0], w.data[0][1]
+            w1, w2 = w.data[0][0].item(), w.data[0][1].item()
             line_params.append(
-                {'w1': w1.item(), 'w2': w2.item(), 'b': b.data[0].item()})
+                {'w1': w1, 'w2': w2, 'b': b.data[0].item()})
 
         result = {'line_params': line_params}
         return jsonify(result)
