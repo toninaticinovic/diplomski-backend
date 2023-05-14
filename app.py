@@ -4,6 +4,7 @@ from flask_cors import CORS
 import numpy as np
 from sklearn.datasets import make_blobs
 from sklearn.model_selection import train_test_split
+from scipy.spatial import ConvexHull
 import torch
 
 app = Flask(__name__)
@@ -20,7 +21,6 @@ class HelloWorld(MethodView):
 
 
 app.add_url_rule("/test", view_func=HelloWorld.as_view("hello_world"))
-
 
 class LogisticRegression(torch.nn.Module):
     def __init__(self, input_dim, output_dim):
@@ -65,10 +65,11 @@ class SeparableDataClassification(MethodView):
     def post(self):
         req_data = request.get_json()
         n_samples = int(req_data.get('n_samples', '1000'))
-        centers = int(req_data.get('centers', '2'))
+        centers = int(req_data.get('classes', '2'))
         train_size = float(req_data.get('train_size', '0.5'))
 
-        X, y = make_blobs(n_samples=n_samples, centers=centers)
+        X, y = make_blobs(n_samples=n_samples,
+                          centers=centers, random_state=100)
 
         data = [{'x1': x[0], 'x2': x[1],
                  'color': int(c)} for x, c in zip(X, y)]
