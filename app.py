@@ -2,10 +2,11 @@ from flask import Flask, jsonify, request
 from flask.views import MethodView
 from flask_cors import CORS
 import numpy as np
-from sklearn.datasets import make_blobs
-from sklearn.model_selection import train_test_split
-from scipy.spatial import ConvexHull
+from sklearn.metrics import confusion_matrix, accuracy_score, f1_score
 import torch
+
+from generateClassificationData import generate_separable_data, generate_non_separable_data, get_line_params
+from classification import LogisticRegression, make_predictions
 
 app = Flask(__name__)
 CORS(app)
@@ -22,44 +23,6 @@ class HelloWorld(MethodView):
 
 app.add_url_rule("/test", view_func=HelloWorld.as_view("hello_world"))
 
-class LogisticRegression(torch.nn.Module):
-    def __init__(self, input_dim, output_dim):
-        super(LogisticRegression, self).__init__()
-        self.linear = torch.nn.Linear(input_dim, output_dim)
-
-    def forward(self, x):
-        outputs = torch.sigmoid(self.linear(x))
-        return outputs
-
-
-def train_model(i, model, x_data, y_data, optimizer, criterion):
-    model.train()
-
-    optimizer.zero_grad()
-
-    outputs = model(x_data)
-
-    loss = criterion(torch.squeeze(outputs), y_data)
-    loss.backward()
-
-    optimizer.step()
-
-    # if (i+1) % 10 == 0:
-    #     print('epoch:', i+1, ',loss=', loss.item())
-    return loss
-
-
-def animate(i, model, x_data, y_data, optimizer, criterion):
-    w, b = model.parameters()
-    w1 = w.data[0][0]
-    w2 = w.data[0][1]
-    u = np.linspace(x_data[:, 0].min(), x_data[:, 0].max(), 2)
-
-    loss = train_model(i, model, x_data, y_data, optimizer, criterion)
-    y1 = (0.5-b.data-w1*u)/w2
-
-    return {'x': u.tolist(), 'y': y1.tolist(), 'loss': loss}
-
 
 class SeparableDataClassification(MethodView):
     def post(self):
@@ -68,22 +31,7 @@ class SeparableDataClassification(MethodView):
         centers = int(req_data.get('classes', '2'))
         train_size = float(req_data.get('train_size', '0.5'))
 
-        X, y = make_blobs(n_samples=n_samples,
-                          centers=centers, random_state=100)
-
-        data = [{'x1': x[0], 'x2': x[1],
-                 'color': int(c)} for x, c in zip(X, y)]
-
-        x_train, x_test, y_train, y_test = train_test_split(
-            X, y, train_size=train_size, random_state=1)
-
-        train_data = [{'x1': x[0], 'x2': x[1],
-                       'color': int(c)} for x, c in zip(x_train, y_train)]
-        test_data = [{'x1': x[0], 'x2': x[1],
-                      'color': int(c)} for x, c in zip(x_test, y_test)]
-
-        result = {'data': data, 'train_data': train_data,
-                  'test_data': test_data}
+        result = generate_separable_data(n_samples, centers, train_size)
 
         return jsonify(result)
 
@@ -92,7 +40,23 @@ app.add_url_rule('/classification/separable_data',
                  view_func=SeparableDataClassification.as_view('separable_data'))
 
 
-class SeparableDataClassificationTrain(MethodView):
+class NonSeparableDataClassification(MethodView):
+    def post(self):
+        req_data = request.get_json()
+        n_samples = int(req_data.get('n_samples', '1000'))
+        centers = int(req_data.get('classes', '2'))
+        train_size = float(req_data.get('train_size', '0.5'))
+
+        result = generate_non_separable_data(n_samples, centers, train_size)
+
+        return jsonify(result)
+
+
+app.add_url_rule('/classification/non_separable_data',
+                 view_func=NonSeparableDataClassification.as_view('non_separable_data'))
+
+
+class GeneratedDataClassificationTrain(MethodView):
     def post(self):
         req_data = request.get_json()
 
@@ -117,19 +81,83 @@ class SeparableDataClassificationTrain(MethodView):
         x = np.array([(d['x1'], d['x2']) for d in data])
         y = np.array([d['color'] for d in data])
 
-        line_params = []
-        for i in range(max_iter):
-            # include loss later for testing purposes
-            loss = train_model(i, model, torch.Tensor(
-                x), torch.Tensor(y), optimizer, criterion)
-            w, b = model.parameters()
-            w1, w2 = w.data[0][0].item(), w.data[0][1].item()
-            line_params.append(
-                {'w1': w1, 'w2': w2, 'b': b.data[0].item()})
+        result = get_line_params(max_iter, model, optimizer, criterion, x, y)
 
-        result = {'line_params': line_params}
         return jsonify(result)
 
 
-app.add_url_rule('/classification/separable_data/train',
-                 view_func=SeparableDataClassificationTrain.as_view('separable_data_train'))
+app.add_url_rule('/classification/generated/train',
+                 view_func=GeneratedDataClassificationTrain.as_view('separable_data_train'))
+
+
+class GeneratedDataClassificationTest(MethodView):
+    def post(self):
+        req_data = request.get_json()
+
+        test_data = req_data.get('test_data')
+        train_data = req_data.get('train_data')
+        line_params = req_data.get('line_params')
+
+        model = LogisticRegression(2, 1)
+
+        w1 = line_params[-1]['w1']
+        w2 = line_params[-1]['w2']
+        b = line_params[-1]['b']
+        model.linear.weight.data = torch.Tensor([[w1, w2]])
+        model.linear.bias.data = torch.Tensor([b])
+
+        x_test = np.array([(d['x1'], d['x2']) for d in test_data])
+        y_test = np.array([d['color'] for d in test_data])
+        x_train = np.array([(d['x1'], d['x2']) for d in train_data])
+        y_train = np.array([d['color'] for d in train_data])
+
+        predictions_test = make_predictions(model, x_test)
+        predictions_train = make_predictions(model, x_train)
+
+        accuracy_train = accuracy_score(y_train, predictions_train)
+        accuracy_test = accuracy_score(y_test, predictions_test)
+
+        cm_test = confusion_matrix(y_test, predictions_test)
+        f1_test = f1_score(y_test, predictions_test)
+
+        cm_train = confusion_matrix(y_train, predictions_train)
+        f1_train = f1_score(y_train, predictions_train)
+
+        result = {'confusion_matrix_test': cm_test.tolist(),
+                  'f1_score_test': f1_test * 100,
+                  'confusion_matrix_train': cm_train.tolist(),
+                  'f1_score_train': f1_train * 100,
+                  'accuracy_train': accuracy_train * 100, 'accuracy_test': accuracy_test * 100}
+        return jsonify(result)
+
+
+app.add_url_rule('/classification/generated/test',
+                 view_func=GeneratedDataClassificationTest.as_view('separable_data_test'))
+
+
+class GeneratedDataClassificationPredict(MethodView):
+    def post(self):
+        req_data = request.get_json()
+
+        line_params = req_data.get('line_params')
+        x1 = float(req_data.get('x1'))
+        x2 = float(req_data.get('x2'))
+
+        model = LogisticRegression(2, 1)
+
+        w1 = line_params[-1]['w1']
+        w2 = line_params[-1]['w2']
+        b = line_params[-1]['b']
+        model.linear.weight.data = torch.Tensor([[w1, w2]])
+        model.linear.bias.data = torch.Tensor([b])
+
+        new_data = torch.tensor([x1, x2]).type(torch.FloatTensor)
+
+        with torch.no_grad():
+            prediction = make_predictions(model, new_data)
+
+        return jsonify({'prediction': prediction})
+
+
+app.add_url_rule('/classification/generated/predict',
+                 view_func=GeneratedDataClassificationPredict.as_view('separable_data_predict'))
