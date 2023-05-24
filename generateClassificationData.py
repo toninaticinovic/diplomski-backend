@@ -47,17 +47,24 @@ def generate_non_separable_data(n_samples, centers, train_size):
     return result
 
 
-def get_line_params(max_iter, model, optimizer, criterion, x, y):
+def get_params(max_iter, model, optimizer, criterion, x, y, dimension):
 
     line_params = []
+    loss_params = []
     for i in range(max_iter):
         # include loss later for testing purposes
         loss = train_model(i, model, torch.Tensor(
             x), torch.Tensor(y), optimizer, criterion)
-        w, b = model.parameters()
-        w1, w2 = w.data[0][0].item(), w.data[0][1].item()
-        line_params.append(
-            {'w1': w1, 'w2': w2, 'b': b.data[0].item()})
+        if (dimension == 2):
+            w, b = model.parameters()
+            w1, w2 = w.data[0][0].item(), w.data[0][1].item()
+            line_params.append(
+                {'w1': w1, 'w2': w2, 'b': b.data[0].item()})
+        else:
+            loss_params.append({'loss': loss.item(), 'epoch': i})
+    if (dimension == 2):
+        result = {'line_params': line_params}
+    else:
+        result = {'loss_params': loss_params}
 
-    result = {'line_params': line_params}
     return result
