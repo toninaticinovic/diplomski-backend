@@ -62,9 +62,13 @@ def get_params(max_iter, model, optimizer, criterion, x, y, dimension):
                 {'w1': w1, 'w2': w2, 'b': b.data[0].item()})
         else:
             loss_params.append({'loss': loss.item(), 'epoch': i})
+    w, b = model.parameters()
+    latest_params = {'w': w.detach().numpy().tolist(),
+                     'b': b.detach().numpy().tolist()}
+
     if (dimension == 2):
         result = {'line_params': line_params}
     else:
         result = {'loss_params': loss_params}
 
-    return result
+    return {"result": result, "latest_params": latest_params}

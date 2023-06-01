@@ -4,12 +4,14 @@ from flask.views import MethodView
 from flask_cors import CORS
 import numpy as np
 import pandas as pd
+from sklearn.discriminant_analysis import StandardScaler
 from sklearn.metrics import confusion_matrix, accuracy_score, f1_score
 from sklearn.model_selection import train_test_split
+
 import torch
 
 from generateClassificationData import generate_separable_data, generate_non_separable_data, get_params
-from classification import LogisticRegression, detect_outliers, make_predictions, datasets
+from classification import LogisticRegression, detect_outliers, make_predictions, datasets, dataset_predictions
 
 app = Flask(__name__)
 CORS(app)
@@ -114,23 +116,46 @@ class GeneratedDataClassificationTest(MethodView):
 
         test_data = req_data.get('test_data')
         train_data = req_data.get('train_data')
-        line_params = req_data.get('line_params')
+        dataset = req_data.get('dataset')
+        latest_params = req_data.get('latest_params')
 
-        model = LogisticRegression(2, 1)
+        if train_data is not None and test_data is not None and dataset is None:
+            x_train = np.array([(d['x1'], d['x2']) for d in train_data])
+            y_train = np.array([d['color'] for d in train_data])
+            x_test = np.array([(d['x1'], d['x2']) for d in test_data])
+            y_test = np.array([d['color'] for d in test_data])
 
-        w1 = line_params[-1]['w1']
-        w2 = line_params[-1]['w2']
-        b = line_params[-1]['b']
-        model.linear.weight.data = torch.Tensor([[w1, w2]])
-        model.linear.bias.data = torch.Tensor([b])
+        elif train_data is not None and test_data is not None and dataset is not None:
+            x_train = []
+            y_train = []
 
-        x_test = np.array([(d['x1'], d['x2']) for d in test_data])
-        y_test = np.array([d['color'] for d in test_data])
-        x_train = np.array([(d['x1'], d['x2']) for d in train_data])
-        y_train = np.array([d['color'] for d in train_data])
+            for d in train_data:
+                x_values = [v for k, v in d.items() if k != 'target']
+                x_train.append(x_values)
+                y_train.append(d['target'])
+            x_train = np.array(x_train)
+            y_train = np.array(y_train)
 
-        predictions_test = make_predictions(model, x_test)
+            x_test = []
+            y_test = []
+
+            for d in test_data:
+                x_values = [v for k, v in d.items() if k != 'target']
+                x_test.append(x_values)
+                y_test.append(d['target'])
+            x_test = np.array(x_test)
+            y_test = np.array(y_test)
+
+        dimension = x_test.shape[1]
+        model = LogisticRegression(dimension, 1)
+
+        w = torch.tensor(latest_params['w']).reshape(1, -1)
+        b = torch.tensor([latest_params['b']])
+        model.linear.weight.data = w
+        model.linear.bias.data = b
+
         predictions_train = make_predictions(model, x_train)
+        predictions_test = make_predictions(model, x_test)
 
         accuracy_train = accuracy_score(y_train, predictions_train)
         accuracy_test = accuracy_score(y_test, predictions_test)
@@ -157,17 +182,16 @@ class GeneratedDataClassificationPredict(MethodView):
     def post(self):
         req_data = request.get_json()
 
-        line_params = req_data.get('line_params')
+        latest_params = req_data.get('latest_params')
         x1 = float(req_data.get('x1'))
         x2 = float(req_data.get('x2'))
 
         model = LogisticRegression(2, 1)
 
-        w1 = line_params[-1]['w1']
-        w2 = line_params[-1]['w2']
-        b = line_params[-1]['b']
-        model.linear.weight.data = torch.Tensor([[w1, w2]])
-        model.linear.bias.data = torch.Tensor([b])
+        w = torch.tensor(latest_params['w']).reshape(1, -1)
+        b = torch.tensor([latest_params['b']]).reshape(-1)
+        model.linear.weight.data = w
+        model.linear.bias.data = b
 
         new_data = torch.tensor([x1, x2]).type(torch.FloatTensor)
 
@@ -205,6 +229,8 @@ class ClassificationDatasetStatisticalAnalysis(MethodView):
 
         data = pd.read_csv(dataset_path)
 
+        data_size = {'count': data.shape[0], 'dimension': data.shape[1] - 1}
+
         data_stats = []
         columns = data.columns
 
@@ -224,7 +250,7 @@ class ClassificationDatasetStatisticalAnalysis(MethodView):
             }
             data_stats.append(stats)
 
-        return jsonify({'data_stats': data_stats, 'label': label})
+        return jsonify({'data_stats': data_stats, 'label': label, 'data_size': data_size})
 
 
 app.add_url_rule('/classification/dataset/statistical-analysis',
@@ -243,16 +269,32 @@ class ClassificationBoxPlot(MethodView):
         box_plot_data = []
 
         for column in numerical_columns:
+            column_data = data[column]
+            q1 = column_data.quantile(0.25)
+            q3 = column_data.quantile(0.75)
+            iqr = q3 - q1
+            lower_bound = q1 - 1.5 * iqr
+            upper_bound = q3 + 1.5 * iqr
+
+            # Calculate outliers
+            outliers = column_data[(column_data < lower_bound) | (
+                column_data > upper_bound)]
+
+            # Exclude outliers from the box plot data
+            filtered_data = column_data[(column_data >= lower_bound) & (
+                column_data <= upper_bound)]
+
             box_plot_values = [
-                data[column].min().item(),
-                data[column].quantile(0.25).item(),
-                data[column].median().item(),
-                data[column].quantile(0.75).item(),
-                data[column].max().item()
+                filtered_data.min().item(),
+                filtered_data.quantile(0.25).item(),
+                filtered_data.median().item(),
+                filtered_data.quantile(0.75).item(),
+                filtered_data.max().item()
             ]
             box_plot_entry = {
                 'x': column,
-                'y': box_plot_values
+                'y': box_plot_values,
+                'outliers': outliers.tolist()  # Convert outliers to a list
             }
             box_plot_data.append(box_plot_entry)
 
@@ -328,3 +370,74 @@ class ClassificationDatasetSets(MethodView):
 
 app.add_url_rule('/classification/dataset/sets',
                  view_func=ClassificationDatasetSets.as_view('dataset_sets'))
+
+
+class DatasetClassificationGetPredictFields(MethodView):
+    def post(self):
+        req_data = request.get_json()
+        dataset = req_data.get('dataset')
+
+        data = pd.read_csv('datasets/classification/' + dataset + '.csv')
+
+        X = data.drop(columns=['class'])
+
+        field_names = X.columns.tolist()
+        field_types = {}
+
+        for field in field_names:
+            if X[field].dtype == 'object':
+                field_types[field] = 'categorical'
+            else:
+                field_types[field] = 'numerical'
+
+        categorical_values = {}
+
+        for field in field_names:
+            if field_types[field] == 'categorical':
+                unique_values = X[field].unique().tolist()
+                categorical_values[field] = unique_values
+            else:
+                categorical_values[field] = []
+
+        response_data = {
+            'fields': [
+                {'name': field, 'type': field_types[field], 'options':  categorical_values[field]} for field in field_names
+            ]
+        }
+
+        return jsonify(response_data)
+
+
+app.add_url_rule('/classification/dataset/predict-fields',
+                 view_func=DatasetClassificationGetPredictFields.as_view('dataset_predict_fields'))
+
+
+class DatasetClassificationGetPredict(MethodView):
+    def post(self):
+        req_data = request.get_json()
+        dataset = req_data.get('dataset')
+        latest_params = req_data.get('latest_params')
+        input = req_data.get('input')
+
+        data = pd.read_csv('datasets/classification/' + dataset + '.csv')
+
+        dimension = data.shape[1] - 1
+
+        model = LogisticRegression(dimension, 1)
+
+        w = torch.tensor(latest_params['w']).reshape(1, -1)
+        b = torch.tensor([latest_params['b']]).reshape(-1)
+        model.linear.weight.data = w
+        model.linear.bias.data = b
+
+        input = [float(value) for value in input]
+        new_data = torch.tensor(input).type(torch.FloatTensor)
+
+        with torch.no_grad():
+            prediction = make_predictions(model, new_data)
+
+        return jsonify({'prediction': prediction[0], 'description': dataset_predictions[dataset][int(prediction[0])]})
+
+
+app.add_url_rule('/classification/dataset/predict',
+                 view_func=DatasetClassificationGetPredict.as_view('dataset_predict'))

@@ -1,6 +1,5 @@
 import torch
 
-
 datasets = [
     {'label': 'Autentifikacija novčanica', 'value': 'bank_note_authentication',
      'description': 'Skup podataka iz kojeg se izgrađuje model klasifikacije za predviđanje autentičnosti novčanica na temelju zadanih značajki (variance, skewness, curtosis, entropy).'},
@@ -10,6 +9,21 @@ datasets = [
      'description': 'Skup podataka sadrži slučajeve iz studije koja je provedena između 1958. i 1970. u bolnici Billings Sveučilišta u Chicagu preživljavanje pacijenata koji su bili podvrgnuti operaciji raka dojke. Značajke koje se uzimaju u obzir su starost pacijenta, godina operacije i broj otkrivenih pozitivnih aksilarnih čvorova.'},
     {'label': 'Pitkost vode', 'value': 'water_potability', 'description': 'Skup podataka koji sadrži informacije o različitim parametrima kvalitete vode kako bi se utvrdilo je li voda pitka ili ne. Skup podataka pruža opažanja o različitim kemijskim i fizičkim karakteristikama uzoraka vode iz različitih izvora poput pH vode ili tvrdoće vode.', }
 ]
+
+dataset_predictions = {
+    'bank_note_authentication': {
+        0: 'Novčanica je autentična',
+        1: 'Novčanica nije autentična'
+    },
+    'diabetes': {
+        0: 'Pacijent nije dijabetičar',
+        1: 'Pacijent je dijabetičar'
+    },
+    'haberman': {
+        0: 'Pacijent je preživio 5 godina ili duže nakon operacije',
+        1: 'Pacijent nije preživio 5 godina nakon operacije'
+    }
+}
 
 
 def detect_outliers(data):
