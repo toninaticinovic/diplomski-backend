@@ -1,61 +1,37 @@
 from flask import jsonify, request
 from flask.views import MethodView
 import numpy as np
-from sklearn.metrics import confusion_matrix, f1_score, accuracy_score
 import torch
+from sklearn.metrics import mean_squared_error, r2_score, accuracy_score
 
 from services import get_params
 
-classification_datasets = [
-    {'label': 'Autentifikacija novčanica', 'value': 'bank_note_authentication',
-     'description': 'Skup podataka iz kojeg se izgrađuje model klasifikacije za predviđanje autentičnosti novčanica na temelju zadanih značajki (variance, skewness, curtosis, entropy).'},
-    {'label': 'Pima Indians Dijabetes', 'value': 'diabetes',
-     'description': 'Skup podataka iz kojeg se izgrađuje model klasifikacije za dijagnosticiranje je li pacijent dijabetičar ili ne, na temelju određenih dijagnostičkih mjera (npr. broj trudnoća, razina glukoze u krvi, ...). Sve pacijentice su žene iz indijskog plemena Pima, koje imaju najmanje 21 godinu.'},
-    {'label': 'Habermanov skup podataka o preživljavanju', 'value': 'haberman',
-     'description': 'Skup podataka sadrži slučajeve iz studije koja je provedena između 1958. i 1970. u bolnici Billings Sveučilišta u Chicagu preživljavanje pacijenata koji su bili podvrgnuti operaciji raka dojke. Značajke koje se uzimaju u obzir su starost pacijenta, godina operacije i broj otkrivenih pozitivnih aksilarnih čvorova.'},
+regression_datasets = [
+    {'label': 'Skup podataka o oglašavanju (eng.advertising)', 'value': 'advertising',
+     'description': 'Skup podataka sadrži informacije o prodaji proizvoda na različitim tržištima, zajedno s proračunima za oglašavanje na različitim medijskim kanalima poput televizije, radija i novina.'},
+    {'label': 'Skup podataka o iznajmljivanju bicikla', 'value': 'bike_rent',
+     'description': 'Skup podataka sadrži broj iznajmljenih bicikala po danu, zajedno s raznim vremenskim i sezonskim informacijama.'},
+    {'label': 'Skup podataka o ribama', 'value': 'fish',
+     'description': 'Ovaj skup podataka sadrži podatke o 7 uobičajenih različitih vrsta riba u prodaji na ribarnici. Cilj je predvidjeti težinu ribe na temelju mjerenja.'},
 ]
 
-classification_dataset_predictions = {
-    'bank_note_authentication': {
-        0: 'Novčanica je autentična',
-        1: 'Novčanica nije autentična'
-    },
-    'diabetes': {
-        0: 'Pacijent nije dijabetičar',
-        1: 'Pacijent je dijabetičar'
-    },
-    'haberman': {
-        0: 'Pacijent je preživio 5 godina ili duže nakon operacije',
-        1: 'Pacijent nije preživio 5 godina nakon operacije'
-    }
-}
 
-
-def detect_outliers(data):
-    Q1 = data.quantile(0.25)
-    Q3 = data.quantile(0.75)
-    IQR = Q3 - Q1
-
-    return data[(data < (Q1 - 1.5 * IQR)) | (data > Q3 + 1.5 * IQR)]
-
-
-class LogisticRegression(torch.nn.Module):
+class LinearRegressionModel(torch.nn.Module):
     def __init__(self, input_dim, output_dim):
-        super(LogisticRegression, self).__init__()
+        super(LinearRegressionModel, self).__init__()
         self.linear = torch.nn.Linear(input_dim, output_dim)
 
     def forward(self, x):
-        outputs = torch.sigmoid(self.linear(x))
-        return outputs
+        return self.linear(x)
 
 
 def make_predictions(model, x_test):
     with torch.no_grad():
-        predictions = model(torch.Tensor(x_test)).round()
+        predictions = model(torch.Tensor(x_test))
     return predictions.numpy().tolist()
 
 
-class ClassificationTrain(MethodView):
+class RegressionTrain(MethodView):
     def post(self):
         req_data = request.get_json()
 
@@ -88,7 +64,7 @@ class ClassificationTrain(MethodView):
             y = np.array(y)
 
         dimension = x[0].size
-        model = LogisticRegression(dimension, 1)
+        model = LinearRegressionModel(dimension, 1)
 
         optimizer = getattr(torch.optim, optimizer_name)(
             model.parameters(), lr=learning_rate)
@@ -100,7 +76,7 @@ class ClassificationTrain(MethodView):
         return jsonify(result)
 
 
-class DataClassificationTest(MethodView):
+class DataRegressionTest(MethodView):
     def post(self):
         req_data = request.get_json()
 
@@ -137,7 +113,7 @@ class DataClassificationTest(MethodView):
             y_test = np.array(y_test)
 
         dimension = x_test.shape[1]
-        model = LogisticRegression(dimension, 1)
+        model = LinearRegressionModel(dimension, 1)
 
         w = torch.tensor(latest_params['w']).reshape(1, -1)
         b = torch.tensor([latest_params['b']])
@@ -147,18 +123,14 @@ class DataClassificationTest(MethodView):
         predictions_train = make_predictions(model, x_train)
         predictions_test = make_predictions(model, x_test)
 
-        accuracy_train = accuracy_score(y_train, predictions_train)
-        accuracy_test = accuracy_score(y_test, predictions_test)
+        r2_score_train = r2_score(y_train, predictions_train)
+        r2_score_test = r2_score(y_test, predictions_test)
 
-        cm_test = confusion_matrix(y_test, predictions_test)
-        f1_test = f1_score(y_test, predictions_test)
+        mse_train = mean_squared_error(y_train, predictions_train)
+        mse_test = mean_squared_error(y_test, predictions_test)
 
-        cm_train = confusion_matrix(y_train, predictions_train)
-        f1_train = f1_score(y_train, predictions_train)
-
-        result = {'confusion_matrix_test': cm_test.tolist(),
-                  'f1_score_test': f1_test * 100,
-                  'confusion_matrix_train': cm_train.tolist(),
-                  'f1_score_train': f1_train * 100,
-                  'accuracy_train': accuracy_train * 100, 'accuracy_test': accuracy_test * 100}
+        result = {'mse_test': mse_test,
+                  'r2_score_test': r2_score_test,
+                  'mse_train': mse_train,
+                  'r2_score_train': r2_score_train}
         return jsonify(result)

@@ -1,8 +1,5 @@
 from sklearn.datasets import make_blobs, make_classification
 from sklearn.model_selection import train_test_split
-import torch
-
-from classification import train_model
 
 
 def generate_separable_data(n_samples, centers, train_size):
@@ -45,30 +42,3 @@ def generate_non_separable_data(n_samples, centers, train_size):
               'test_data': test_data}
 
     return result
-
-
-def get_params(max_iter, model, optimizer, criterion, x, y, dimension):
-
-    line_params = []
-    loss_params = []
-    for i in range(max_iter):
-        # include loss later for testing purposes
-        loss = train_model(i, model, torch.Tensor(
-            x), torch.Tensor(y), optimizer, criterion)
-        if (dimension == 2):
-            w, b = model.parameters()
-            w1, w2 = w.data[0][0].item(), w.data[0][1].item()
-            line_params.append(
-                {'w1': w1, 'w2': w2, 'b': b.data[0].item()})
-        else:
-            loss_params.append({'loss': loss.item(), 'epoch': i})
-    w, b = model.parameters()
-    latest_params = {'w': w.detach().numpy().tolist(),
-                     'b': b.detach().numpy().tolist()}
-
-    if (dimension == 2):
-        result = {'line_params': line_params}
-    else:
-        result = {'loss_params': loss_params}
-
-    return {"result": result, "latest_params": latest_params}
