@@ -3,6 +3,7 @@ from flask.views import MethodView
 import pandas as pd
 from sklearn.preprocessing import LabelEncoder
 from sklearn.model_selection import train_test_split
+import joblib
 
 
 def sets(X, y, train_size):
@@ -68,9 +69,14 @@ class RegressionDatasetSets(MethodView):
         X = data.iloc[:, :-1]
         y = data.iloc[:, -1]
 
-        label_encoder = LabelEncoder()
+        label_encoders = {}
         for column in categorical_columns:
+            label_encoder = LabelEncoder()
             X[column] = label_encoder.fit_transform(X[column])
+            label_encoders[column] = label_encoder
+
+        label_encoder_path = 'encoders/label_encoders_' + dataset_name + '.pkl'
+        joblib.dump(label_encoders, label_encoder_path)
 
         train_data, test_data = sets(X, y, train_size)
 
