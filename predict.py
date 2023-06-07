@@ -69,7 +69,6 @@ class DatasetClassificationGetPredict(MethodView):
     def post(self):
         req_data = request.get_json()
         dataset = req_data.get('dataset')
-        latest_params = req_data.get('latest_params')
         input = req_data.get('input')
 
         data = pd.read_csv('datasets/classification/' + dataset + '.csv')
@@ -78,10 +77,9 @@ class DatasetClassificationGetPredict(MethodView):
 
         model = LogisticRegression(dimension, 1)
 
-        w = torch.tensor(latest_params['w']).reshape(1, -1)
-        b = torch.tensor([latest_params['b']]).reshape(-1)
-        model.linear.weight.data = w
-        model.linear.bias.data = b
+        path = 'models/classification/' + dataset + '.pt'
+        model.load_state_dict(torch.load(path))
+        model.eval()
 
         input = [float(value) for value in input]
         new_data = torch.tensor(input).type(torch.FloatTensor)
@@ -95,17 +93,14 @@ class DatasetClassificationGetPredict(MethodView):
 class GeneratedDataClassificationPredict(MethodView):
     def post(self):
         req_data = request.get_json()
-
-        latest_params = req_data.get('latest_params')
         x1 = float(req_data.get('x1'))
         x2 = float(req_data.get('x2'))
 
         model = LogisticRegression(2, 1)
 
-        w = torch.tensor(latest_params['w']).reshape(1, -1)
-        b = torch.tensor([latest_params['b']]).reshape(-1)
-        model.linear.weight.data = w
-        model.linear.bias.data = b
+        path = 'models/classification/generated.pt'
+        model.load_state_dict(torch.load(path))
+        model.eval()
 
         new_data = torch.tensor([x1, x2]).type(torch.FloatTensor)
 
@@ -119,7 +114,6 @@ class DatasetRegressionGetPredict(MethodView):
     def post(self):
         req_data = request.get_json()
         dataset = req_data.get('dataset')
-        latest_params = req_data.get('latest_params')
         input = req_data.get('input')
 
         data = pd.read_csv('datasets/regression/' + dataset + '.csv')
@@ -128,10 +122,9 @@ class DatasetRegressionGetPredict(MethodView):
 
         model = LinearRegressionModel(dimension, 1)
 
-        w = torch.tensor(latest_params['w']).reshape(1, -1)
-        b = torch.tensor([latest_params['b']]).reshape(-1)
-        model.linear.weight.data = w
-        model.linear.bias.data = b
+        path = 'models/regression/' + dataset + '.pt'
+        model.load_state_dict(torch.load(path))
+        model.eval()
 
         new_data = []
 

@@ -73,6 +73,9 @@ class RegressionTrain(MethodView):
         result = get_params(max_iter, model, optimizer,
                             criterion, x, y, dimension)
 
+        path = 'models/regression/' + dataset + '.pt'
+        torch.save(model.state_dict(), path)
+
         return jsonify(result)
 
 
@@ -83,7 +86,6 @@ class DataRegressionTest(MethodView):
         test_data = req_data.get('test_data')
         train_data = req_data.get('train_data')
         dataset = req_data.get('dataset')
-        latest_params = req_data.get('latest_params')
 
         if train_data is not None and test_data is not None and dataset is None:
             x_train = np.array([(d['x1'], d['x2']) for d in train_data])
@@ -115,10 +117,9 @@ class DataRegressionTest(MethodView):
         dimension = x_test.shape[1]
         model = LinearRegressionModel(dimension, 1)
 
-        w = torch.tensor(latest_params['w']).reshape(1, -1)
-        b = torch.tensor([latest_params['b']])
-        model.linear.weight.data = w
-        model.linear.bias.data = b
+        path = 'models/regression/' + dataset + '.pt'
+        model.load_state_dict(torch.load(path))
+        model.eval()
 
         predictions_train = make_predictions(model, x_train)
         predictions_test = make_predictions(model, x_test)

@@ -8,6 +8,8 @@ import numpy as np
 from classification import classification_datasets
 from regression import regression_datasets
 
+# TODO: Return boolean if model.pt exists (to show button to skip to predict immediately)
+
 
 def get_data_stats(data):
     data_stats = []
@@ -58,7 +60,13 @@ class ClassificationDatasetStatisticalAnalysis(MethodView):
 
         data_stats, num_data_stats = get_data_stats(data)
 
-        return jsonify({'data_stats': data_stats, 'num_data_stats': num_data_stats, 'label': label, 'data_size': data_size})
+        model_path = 'models/classification/' + dataset_name + '.pt'
+        if os.path.exists(model_path):
+            model_exists = True
+        else:
+            model_exists = False
+
+        return jsonify({'data_stats': data_stats, 'num_data_stats': num_data_stats, 'label': label, 'data_size': data_size, 'model_exists': model_exists})
 
 
 class RegressionDatasetStatisticalAnalysis(MethodView):
@@ -80,7 +88,13 @@ class RegressionDatasetStatisticalAnalysis(MethodView):
 
         data_stats, num_data_stats = get_data_stats(data)
 
-        return jsonify({'data_stats': data_stats, 'num_data_stats': num_data_stats, 'label': label, 'data_size': data_size})
+        model_path = 'models/regression/' + dataset_name + '.pt'
+        if os.path.exists(model_path):
+            model_exists = True
+        else:
+            model_exists = False
+
+        return jsonify({'data_stats': data_stats, 'num_data_stats': num_data_stats, 'label': label, 'data_size': data_size, 'model_exists': model_exists})
 
 
 def getBoxPlotData(data):
