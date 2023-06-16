@@ -10,9 +10,9 @@ classification_datasets = [
     {'label': 'Autentifikacija novčanica', 'value': 'bank_note_authentication',
      'description': 'Skup podataka iz kojeg se izgrađuje model klasifikacije za predviđanje autentičnosti novčanica na temelju zadanih značajki (variance, skewness, curtosis, entropy).'},
     {'label': 'Pima Indians Dijabetes', 'value': 'diabetes',
-     'description': 'Skup podataka iz kojeg se izgrađuje model klasifikacije za dijagnosticiranje je li pacijent dijabetičar ili ne, na temelju određenih dijagnostičkih mjera (npr. broj trudnoća, razina glukoze u krvi, ...). Sve pacijentice su žene iz indijskog plemena Pima, koje imaju najmanje 21 godinu.'},
+     'description': 'Skup podataka koji sadrži dijagnostičke mjere pacijenata s ciljem određivanja je li pacijent dijabetičar ili ne. Svi pacijenti u ovom skupu podataka su žene iz indijanskog plemena Pima s navršenih najmanje 21 godinu. Neke od ulaznih značajki su broj trudnoća, starost pacijentice i krvni tlak.'},
     {'label': 'Habermanov skup podataka o preživljavanju', 'value': 'haberman',
-     'description': 'Skup podataka sadrži slučajeve iz studije koja je provedena između 1958. i 1970. u bolnici Billings Sveučilišta u Chicagu preživljavanje pacijenata koji su bili podvrgnuti operaciji raka dojke. Značajke koje se uzimaju u obzir su starost pacijenta, godina operacije i broj otkrivenih pozitivnih aksilarnih čvorova.'},
+     'description': 'Skup podataka koji sadrži podatke informacije o pacijentima koji su podvrgnuti operaciji raka dojke između 1958. i 1970. godine u svrhu predviđanja preživljavanja pacijenta nakon ove operacije. Ulazne značajke su dob pacijenta, godina izvršavanja operacije i broj zahvaćenih limfnih čvorova.'},
 ]
 
 classification_dataset_predictions = {

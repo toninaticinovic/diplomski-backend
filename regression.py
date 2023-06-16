@@ -8,8 +8,8 @@ from services import get_params
 
 regression_datasets = [
     {'label': 'Skup podataka o oglašavanju (eng.advertising)', 'value': 'advertising',
-     'description': 'Skup podataka sadrži informacije o prodaji proizvoda na različitim tržištima, zajedno s proračunima za oglašavanje na različitim medijskim kanalima poput televizije, radija i novina.'},
-    {'label': 'Skup podataka o iznajmljivanju bicikla', 'value': 'bike_rent',
+     'description': 'Skup podataka model koji sadrži podatke o ulaganjima u oglašavanju na različitim medijskim platformama izraženo u tisućama dolara. Izlazna varijabla je prodaja koja predstavlja količinu prodanih proizvoda izraženih u tisućama jedinica proizvoda.'},
+    {'label': 'Skup podataka o iznajmljivanju bicikala', 'value': 'bike_rent',
      'description': 'Skup podataka sadrži broj iznajmljenih bicikala po danu, zajedno s raznim vremenskim i sezonskim informacijama.'},
     {'label': 'Skup podataka o ribama', 'value': 'fish',
      'description': 'Ovaj skup podataka sadrži podatke o 7 uobičajenih različitih vrsta riba u prodaji na ribarnici. Cilj je predvidjeti težinu ribe na temelju mjerenja.'},
